@@ -1,7 +1,7 @@
 #ifndef TIGER_TRI_MESH_H
 #define TIGER_TRI_MESH_H
 
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <vector>
 #include <array>
 
