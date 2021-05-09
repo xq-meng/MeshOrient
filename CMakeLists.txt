@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 project(MeshOrient)
 
-option(BUILD_EXECUTABLE "Build executable." ON)
+option(BUILD_EXECUTABLE "Build executable." OFF)
 
 set(SOURCES
 include/MeshOrient.h
