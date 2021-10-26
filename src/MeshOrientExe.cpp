@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <limits>
+#include <algorithm>
 #include "MeshOrient.h"
 using namespace std;
 
@@ -143,7 +144,7 @@ int main(int argc, char** argv) {
     cout << "Reset orientation finished." << endl;
     int blockNum = 0;
     for(auto &b : bMark)
-        blockNum = max(b, blockNum);
+        blockNum = std::max(b, blockNum);
     cout << "  " << ++blockNum << " blocks" << endl;
     cout << "Output file will be written to " << output_filename << endl;
     status = write_VTK(output_filename, plist, flist, bMark);

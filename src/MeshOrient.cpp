@@ -14,8 +14,8 @@ using namespace TIGER;
 int TIGER::resetOrientation(vector<vector<double>> &point_list, vector<vector<int>> &facet_list, vector<int> &blockMark) {
     sfMesh mesh(point_list, facet_list);
     if(!mesh.isManifold) {
-        cout << "Reset Orientation failed. Input mesh is non-manifold." << endl;
-        return 0;
+        cout << "Non-manifold edge found! ignore corresponding edges." << endl;
+       // return 0;
     }
     mesh.resetOrientation();
     blockMark.resize(facet_list.size());
@@ -63,10 +63,13 @@ void sfMesh::Init(std::vector<std::vector<double>> plist, std::vector<std::vecto
             set<int> &v1_set = conn_v_t[v1];
             set<int> &v2_set = conn_v_t[v2];
             set<int> inct;
+
+			bool is_current_edge_manifold = true;
             set_intersection(std::begin(v1_set), std::end(v1_set), std::begin(v2_set), std::end(v2_set), std::inserter(inct, std::begin(inct)));
             if(inct.size() != 2) {
                 this->isManifold = false;
-                return;
+				is_current_edge_manifold = false;
+               // return;
             }
             int nb_tri = i;
             for(auto f : inct) {
@@ -75,8 +78,15 @@ void sfMesh::Init(std::vector<std::vector<double>> plist, std::vector<std::vecto
                     break;
                 }
             }
-            facets[i].neig[j] = nb_tri;
-            facet2block.Union(i, nb_tri);
+			if (is_current_edge_manifold) {
+				facets[i].neig[j] = nb_tri;
+				
+				/* yhf: should this line be outside of "if"? Should we distinguish blocks connected by non-manifold edge?  */
+				facet2block.Union(i, nb_tri);
+			}
+			else {
+				facets[i].neig[j] = NON_MANIFOLD_EDGE_TAG;
+			}
         }
     }
 
@@ -113,6 +123,7 @@ void sfMesh::resetBlockOrientation(int start) {
     unordered_set<int> elemVisited;
     elemVisited.insert(start);
     vector<int> blockFacets;
+	// BFS all the facet and reorient the facets by manifold criterion
     while(!Q.empty()) {
         facet &curFacet = facets[Q.front()];
         blockFacets.push_back(curFacet.id);
@@ -122,6 +133,9 @@ void sfMesh::resetBlockOrientation(int start) {
             curVerts[curFacet.form[i]] = i;
         for(int i = 0; i < 3; i++) {
             // Current neighbor element.
+			if (curFacet.neig[i] == NON_MANIFOLD_EDGE_TAG) {
+				continue;
+			}
             if(elemVisited.find(curFacet.neig[i]) != elemVisited.end())
                 continue;
             facet &nghFacet = facets[curFacet.neig[i]];
