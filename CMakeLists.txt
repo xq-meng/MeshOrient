@@ -6,7 +6,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release")
 endif()
 # options
-option(BUILD_EXECUTABLE "Build executable." ON)
+option(MESHORIENT_BUILD_EXECUTABLE "Build executable." ON)
 # download
 if(DOWNLOAD_WITH_CNPM)
     set (GITHUB_REPOSITE "github.com.cnpmjs.org")
@@ -24,7 +24,7 @@ add_library(MeshOrient STATIC ${SOURCES})
 target_include_directories(MeshOrient PRIVATE ${EIGEN_BASE})
 target_include_directories(MeshOrient PUBLIC ./include)
 
-if(BUILD_EXECUTABLE)
+if(MESHORIENT_BUILD_EXECUTABLE)
     add_executable(MeshOrientExe src/MeshOrientExe.cpp)
     target_link_libraries(MeshOrientExe PUBLIC MeshOrient)
     set_target_properties(MeshOrientExe PROPERTIES OUTPUT_NAME MeshOrient)
