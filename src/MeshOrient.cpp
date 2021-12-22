@@ -2,130 +2,70 @@
 #include "triMesh.h"
 
 #include <iostream>
+#include <queue>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
-#include <algorithm>
-#include <queue>
 
 using namespace std;
-using namespace TIGER;
 
-int TIGER::resetOrientation(vector<vector<double>> &point_list, vector<vector<int>> &facet_list, vector<int> &blockMark) {
+void resetOrientation(sfMesh& mesh);
+void resetOrientationBFS(sfMesh& mesh, int start);
+void resetOrientationVisualDriven(sfMesh &mesh);
+
+int TIGER::resetOrientation(vector<vector<double>> &point_list, vector<vector<int>> &facet_list, vector<int> &block_mark) {
     sfMesh mesh(point_list, facet_list);
     if(!mesh.isManifold) {
         cout << "Non-manifold edge found! ignore corresponding edges." << endl;
-       // return 0;
     }
-    mesh.resetOrientation();
-    blockMark.resize(facet_list.size());
+    resetOrientation(mesh);
+    block_mark.resize(facet_list.size());
     for(int i = 0; i < facet_list.size(); i++) {
         for(int j = 0; j < 3; j++)
             facet_list[i][j] = mesh.facets[i].form[j];
-        blockMark[i] = mesh.facets[i].blockId;
+        block_mark[i] = mesh.facets[i].blockId;
     }
     return 1;
 }
 
-sfMesh::sfMesh(std::vector<std::vector<double>> plist, std::vector<std::vector<int>> flist) {
-    this->Init(plist, flist);
-    return;
+int TIGER::resetOrinetation(Eigen::MatrixXd &point_list, Eigen::MatrixXi &facet_list, Eigen::VectorXi &block_mark) {
+    sfMesh mesh(point_list, facet_list);
+    if(!mesh.isManifold) {
+        cout << "Non-manifold edge found! ignore corresponding edges." << endl;
+    }
+    resetOrientation(mesh);
+    block_mark.resize(facet_list.size());
+    for(int i = 0; i < facet_list.size(); i++) {
+        for(int j = 0; j < 3; j++)
+            facet_list(i, j) = mesh.facets[i].form[j];
+        block_mark(i) = mesh.facets[i].blockId;
+    }
+    return 1;
 }
 
-void sfMesh::Init(std::vector<std::vector<double>> plist, std::vector<std::vector<int>> flist) {
-    this->points.clear();
-    this->facets.clear();
-    for(int i = 0; i < plist.size(); i++) {
-        point p(plist[i][0], plist[i][1], plist[i][2]);
-        p.id = 2;
-        this->points.push_back(p);
-    }
-    unordered_map<int, set<int>> conn_v_t;
-    for(int i = 0; i < flist.size(); i++) {
-        facet t;
-        t.id = i;
-        t.form[0] = flist[i][0];
-        t.form[1] = flist[i][1];
-        t.form[2] = flist[i][2];
-        facets.push_back(t);
-        conn_v_t[t.form[0]].insert(i);
-        conn_v_t[t.form[1]].insert(i);
-        conn_v_t[t.form[2]].insert(i);
-    }
-
-    this->isManifold = true;
-    Block facet2block;
-    facet2block.Init(facets.size());
-    for(int i = 0; i < facets.size(); i++) {
-        for(int j = 0; j < 3; j++) {
-            int v1 = facets[i].form[(j + 1) % 3];
-            int v2 = facets[i].form[(j + 2) % 3];
-            set<int> &v1_set = conn_v_t[v1];
-            set<int> &v2_set = conn_v_t[v2];
-            set<int> inct;
-
-			bool is_current_edge_manifold = true;
-            set_intersection(std::begin(v1_set), std::end(v1_set), std::begin(v2_set), std::end(v2_set), std::inserter(inct, std::begin(inct)));
-            if(inct.size() != 2) {
-                this->isManifold = false;
-				is_current_edge_manifold = false;
-               // return;
-            }
-            int nb_tri = i;
-            for(auto f : inct) {
-                if(f != i) {
-                    nb_tri = f;
-                    break;
-                }
-            }
-			if (is_current_edge_manifold) {
-				facets[i].neig[j] = nb_tri;
-				
-				/* yhf: should this line be outside of "if"? Should we distinguish blocks connected by non-manifold edge?  */
-				facet2block.Union(i, nb_tri);
-			}
-			else {
-				facets[i].neig[j] = NON_MANIFOLD_EDGE_TAG;
-			}
-        }
-    }
-
-    unordered_map<int, int> tmpblocks;
-    int bcnt = 0;
-    for(int i = 0; i < facets.size(); ++i) {
-        int parent = facet2block.Find(i);
-        if(tmpblocks.find(parent) == tmpblocks.end())
-            tmpblocks[parent] = bcnt++;
-        facets[i].blockId = tmpblocks[parent];
-    }
-    this->nBlock = bcnt;
-    return;
-}
-
-void sfMesh::resetOrientation() {
+void resetOrientation(sfMesh& mesh) {
     vector<int> blockStart;
-    for(int bcnt = 0; bcnt < this->nBlock; bcnt++) {
-        for(int i = 0; i < facets.size(); i++) {
-            if(facets[i].blockId == bcnt) {
+    for(int bcnt = 0; bcnt < mesh.nBlock; bcnt++) {
+        for(int i = 0; i < mesh.facets.size(); i++) {
+            if(mesh.facets[i].blockId == bcnt) {
                 blockStart.push_back(i);
                 break;
             }
         }
     }
     for(int start : blockStart)
-        resetBlockOrientation(start);
-    return;
+        resetOrientationBFS(mesh, start);
 }
 
-void sfMesh::resetBlockOrientation(int start) {
+void resetOrientationBFS(sfMesh& mesh, int start) {
     queue<int> Q;
     Q.push(start);
     unordered_set<int> elemVisited;
     elemVisited.insert(start);
     vector<int> blockFacets;
-	// BFS all the facet and reorient the facets by manifold criterion
+    // BFS all the facet and reorient the facets by manifold criterion
     while(!Q.empty()) {
-        facet &curFacet = facets[Q.front()];
+        facet &curFacet = mesh.facets[Q.front()];
         blockFacets.push_back(curFacet.id);
         // curVerts : vertex global Id - vertex local Id
         unordered_map<int, int> curVerts;
@@ -133,12 +73,12 @@ void sfMesh::resetBlockOrientation(int start) {
             curVerts[curFacet.form[i]] = i;
         for(int i = 0; i < 3; i++) {
             // Current neighbor element.
-			if (curFacet.neig[i] == NON_MANIFOLD_EDGE_TAG) {
-				continue;
-			}
+            if (curFacet.neig[i] == NON_MANIFOLD_EDGE_TAG) {
+                continue;
+            }
             if(elemVisited.find(curFacet.neig[i]) != elemVisited.end())
                 continue;
-            facet &nghFacet = facets[curFacet.neig[i]];
+            facet &nghFacet = mesh.facets[curFacet.neig[i]];
             elemVisited.insert(curFacet.neig[i]);
             int tmpV = 0;
             while(curVerts.find(nghFacet.form[tmpV]) != curVerts.end())
@@ -156,9 +96,9 @@ void sfMesh::resetBlockOrientation(int start) {
     // calculated volume
     double volume = 0;
     for(auto tri : blockFacets) {
-        point v1 = points[facets[tri].form[0]];
-        point v2 = points[facets[tri].form[1]];
-        point v3 = points[facets[tri].form[2]];
+        point v1 = mesh.points[mesh.facets[tri].form[0]];
+        point v2 = mesh.points[mesh.facets[tri].form[1]];
+        point v3 = mesh.points[mesh.facets[tri].form[2]];
         Eigen::Vector3d e21 = v2.coord - v1.coord;
         Eigen::Vector3d e31 = v3.coord - v1.coord;
         double tVol = e21.cross(e31).dot(v1.coord);
@@ -167,10 +107,7 @@ void sfMesh::resetBlockOrientation(int start) {
 
     if(volume < 0) {
         for(auto tri : blockFacets) {
-            swap(facets[tri].form[0], facets[tri].form[1]);
+            swap(mesh.facets[tri].form[0], mesh.facets[tri].form[1]);
         }
     }
-
-    return;
 }
-

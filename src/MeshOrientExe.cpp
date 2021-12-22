@@ -20,32 +20,30 @@ std::vector<std::string> seperate_string(std::string origin, std::vector<std::st
         return result;
     }
     origin += patterns[0];
-    size_t startPos = origin.npos;
-    for (auto pt = patterns.begin(); pt != patterns.end(); pt++) {
-        startPos = (origin.find(*pt) < startPos) ? origin.find(*pt) : startPos;
+    size_t startPos = std::string::npos;
+    for (auto & pattern : patterns) {
+        startPos = (origin.find(pattern) < startPos) ? origin.find(pattern) : startPos;
     }
     size_t pos = startPos;
-    while (pos != origin.npos) {
+    while (pos != std::string::npos) {
         std::string temp = origin.substr(0, pos);
         if (temp.length())
             result.push_back(temp);
         origin = origin.substr(pos + 1, origin.size());
-        pos = origin.npos;
-        for (auto pt = patterns.begin(); pt != patterns.end(); pt++) {
-            pos = (origin.find(*pt) < pos) ? origin.find(*pt) : pos;
+        pos = std::string::npos;
+        for (auto & pattern : patterns) {
+            pos = (origin.find(pattern) < pos) ? origin.find(pattern) : pos;
         }
     }
     return result;
 }
 
-int read_VTK(std::string filename, vector<vector<double>> &V, vector<vector<int>> &T) {
-    int nPoints = 0;
-    int nFacets = 0;
+int read_VTK(const std::string& filename, vector<vector<double>> &V, vector<vector<int>> &T) {
     std::ifstream vtk_file;
     vtk_file.open(filename);
     if(!vtk_file.is_open()) {
         cout << "No such file." << endl;
-        return -1;
+        return 0;
     }
     std::string vtk_type_str = "POLYDATA ";
     char buffer[256];
@@ -66,7 +64,7 @@ int read_VTK(std::string filename, vector<vector<double>> &V, vector<vector<int>
         }
         if(line.find("POINTS ") != std::string::npos) {
             std::vector<std::string> words = seperate_string(line);
-            nPoints = stoi(words[1]);
+            int nPoints = stoi(words[1]);
             for(int i = 0; i < nPoints; i++) {
                 vtk_file.getline(buffer, 256);
                 words = seperate_string(std::string(buffer));
@@ -75,7 +73,7 @@ int read_VTK(std::string filename, vector<vector<double>> &V, vector<vector<int>
         }
         if(line.find(vtk_type_str) != std::string::npos) {
             std::vector<std::string> words = seperate_string(line);
-            nFacets = stoi(words[1]);
+            int nFacets = stoi(words[1]);
             for(int i = 0; i < nFacets; i++) {
                 vtk_file.getline(buffer, 256);
                 words = seperate_string(std::string(buffer));
@@ -87,7 +85,7 @@ int read_VTK(std::string filename, vector<vector<double>> &V, vector<vector<int>
     return 1;
 }
 
-int write_VTK(std::string filename, const vector<vector<double>> &V, const vector<vector<int>> &T, const vector<int> blockMark = vector<int>()) {
+int write_VTK(const std::string& filename, const vector<vector<double>> &V, const vector<vector<int>> &T, const vector<int>& block_mark = vector<int>()) {
     std::ofstream f(filename);
     if(!f.is_open()) {
         cout << "Write VTK file failed. " << endl; 
@@ -99,25 +97,26 @@ int write_VTK(std::string filename, const vector<vector<double>> &V, const vecto
     f << "ASCII" << std::endl;
     f << "DATASET UNSTRUCTURED_GRID" << std::endl;
     f << "POINTS " << V.size() << " double" << std::endl;
-    for(int i = 0; i < V.size(); i++)
-        f << V[i][0] << " " << V[i][1] << " " << V[i][2] << std::endl;
+    for(const auto & v : V)
+        f << v[0] << " " << v[1] << " " << v[2] << std::endl;
     f << "CELLS " << T.size() << " " << T.size() * 4 << std::endl;
-    for(int i = 0; i < T.size(); i++) {
-        f << T[i].size() << " ";
-        for(int j = 0; j < T[i].size(); j++)
-            f << T[i][j] << " ";
+    for(const auto & t : T) {
+        f << t.size() << " ";
+        for(int i : t)
+            f << i << " ";
         f << std::endl;
     }
     f << "CELL_TYPES " << T.size() << std::endl;
     int cellType = 5;
     for(int i = 0; i < T.size(); i++)
         f << cellType << std::endl;
-    if(blockMark.size() == T.size()) {
+    if(block_mark.size() == T.size()) {
         f << "CELL_DATA " << T.size() << std::endl;
         f << "SCALARS cell2bodyid int 1" << std::endl;
         f << "LOOKUP_TABLE default" << std::endl;
-        for(int i = 0; i < blockMark.size(); i++) 
-            f << blockMark[i] << std::endl;
+        for(int mark : block_mark) {
+            f << mark << std::endl;
+        }
     }
     f.close();
     return 1;
@@ -132,9 +131,8 @@ int main(int argc, char** argv) {
     string output_filename = input_filename.substr(0, input_filename.find_last_of('.')) + ".o.vtk";
     vector<vector<double>> plist;
     vector<vector<int>> flist;
-    int status = 1;
-    status = read_VTK(input_filename, plist, flist);
-    if(status == 0) return -1;
+    int status = read_VTK(input_filename, plist, flist);
+    if (status == 0) return -1;
     cout << "VTK file read succeed." << " - " << input_filename << endl;
     cout << "  " << plist.size() << " points" << endl;
     cout << "  " << flist.size() << " facets" << endl;
@@ -148,5 +146,5 @@ int main(int argc, char** argv) {
     cout << "  " << ++blockNum << " blocks" << endl;
     cout << "Output file will be written to " << output_filename << endl;
     status = write_VTK(output_filename, plist, flist, bMark);
-    return 0;
+    return status;
 }

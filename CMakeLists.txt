@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.8.12)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 project(MeshOrient)
 if(NOT CMAKE_BUILD_TYPE)
@@ -19,9 +19,10 @@ include(MeshOrientDependencies)
 set(SOURCES
 include/MeshOrient.h
 src/triMesh.h
+src/triMesh.cpp
 src/MeshOrient.cpp)
 add_library(MeshOrient STATIC ${SOURCES})
-target_include_directories(MeshOrient PRIVATE ${EIGEN_BASE})
+target_include_directories(MeshOrient PUBLIC ${EIGEN_BASE})
 target_include_directories(MeshOrient PUBLIC ./include)
 
 if(MESHORIENT_BUILD_EXECUTABLE)

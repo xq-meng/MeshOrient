@@ -4,6 +4,10 @@
 #include <Eigen/Dense>
 #include <vector>
 #include <array>
+#include <set>
+#include <unordered_map>
+
+#define NON_MANIFOLD_EDGE_TAG -1
 
 class point {
 public:
@@ -16,20 +20,22 @@ class facet {
 public:
     int id = 0;
     int blockId = -1;
-    std::array<int, 3> form;
-    std::array<int, 3> neig;
+    std::array<int, 3> form = {0, 0, 0};
+    std::array<int, 3> neig = {0, 0, 0};
 };
 
 class sfMesh {
 public:
-    int nBlock;
+    int nBlock = 0;
     std::vector<point> points;
     std::vector<facet> facets;
-    bool isManifold;
-    sfMesh(std::vector<std::vector<double>> plist, std::vector<std::vector<int>> flist);
-    void Init(std::vector<std::vector<double>> plist, std::vector<std::vector<int>> flist);
-    void resetOrientation();
-    void resetBlockOrientation(int start);
+    std::unordered_map<int, std::set<int>> conn_v_t;
+    bool isManifold = true;
+    sfMesh(std::vector<std::vector<double>> &plist, std::vector<std::vector<int>> &flist);
+    sfMesh(Eigen::MatrixXd &plist, Eigen::MatrixXi &flist);
+    void dataCopy(std::vector<std::vector<double>> &plist, std::vector<std::vector<int>> &flist);
+    void dataCopy(Eigen::MatrixXd &plist, Eigen::MatrixXi &flist);
+    void Initialize();
 };
 
 class Block {
@@ -60,7 +66,6 @@ public:
             rank[f1]++;
         }
         nSet--;
-        return;
     }
 };
 
