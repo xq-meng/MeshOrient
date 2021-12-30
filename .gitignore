@@ -5,6 +5,7 @@
 /extern/geogram
 /extern/libigl
 /extern/spdlog
+/extern/eigen
 
 # Build
 src/ispc/energy.h
