@@ -7,11 +7,14 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <igl/winding_number.h>
+
 using namespace std;
 
 void resetOrientation(sfMesh& mesh);
 void resetOrientationBFS(sfMesh& mesh, int start);
 void resetOrientationVisualDriven(sfMesh &mesh);
+void InOutFiltering(sfMesh &mesh);
 
 int TIGER::resetOrientation(vector<vector<double>> &point_list, vector<vector<int>> &facet_list, vector<int> &block_mark) {
     sfMesh mesh(point_list, facet_list);
@@ -55,6 +58,8 @@ void resetOrientation(sfMesh& mesh) {
     }
     for(int start : blockStart)
         resetOrientationBFS(mesh, start);
+
+    InOutFiltering(mesh);
 }
 
 void resetOrientationBFS(sfMesh& mesh, int start) {
@@ -108,6 +113,63 @@ void resetOrientationBFS(sfMesh& mesh, int start) {
     if(volume < 0) {
         for(auto tri : blockFacets) {
             swap(mesh.facets[tri].form[0], mesh.facets[tri].form[1]);
+        }
+    }
+}
+
+void InOutFiltering(sfMesh& mesh) {
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    Eigen::MatrixXd O;
+    V.resize(mesh.points.size(), 3);
+    F.resize(mesh.facets.size(), 3);
+    O.resize(mesh.points.size(), 3);
+    for(int i = 0; i < mesh.points.size(); i++) {
+        V(i, 0) = mesh.points[i].coord(0);
+        V(i, 1) = mesh.points[i].coord(1);
+        V(i, 2) = mesh.points[i].coord(2);
+        O(i, 0) = mesh.points[i].coord(0);
+        O(i, 1) = mesh.points[i].coord(1);
+        O(i, 2) = mesh.points[i].coord(2);
+    }
+    for(int i = 0; i < mesh.facets.size(); i++) {
+        F(i, 0) = mesh.facets[i].form[0];
+        F(i, 1) = mesh.facets[i].form[1];
+        F(i, 2) = mesh.facets[i].form[2];
+    }
+    Eigen::VectorXd W;
+
+    igl::winding_number(V, F, O, W);
+
+    vector<double> block_winding_number_avg(mesh.nBlock, 0);
+    vector<int> block_point_count(mesh.nBlock, 0);
+    vector<int> visited(mesh.points.size(), 0);
+    
+    for(int i = 0; i < mesh.facets.size(); i++) {
+        for(int j = 0; j < 3; j++) {
+            int pId = mesh.facets[i].form[j];
+            int bId = mesh.facets[i].blockId;
+            if(visited[pId] == 0) {
+                block_winding_number_avg[bId] += W(pId);
+                block_point_count[bId]++;
+                visited[pId] = 1;
+            }
+        }
+    }
+
+    unordered_set<int> to_orient;
+    for(int i = 0; i < mesh.nBlock; i++) {
+        if(block_point_count[i] > 0) {
+            block_winding_number_avg[i] /= block_point_count[i];
+        }
+        if(block_winding_number_avg[i] > 0.5) {
+            to_orient.insert(i);
+        }
+    }
+
+    for(int i = 0; i < mesh.facets.size(); i++) {
+        if(to_orient.count(mesh.facets[i].blockId)) {
+            swap(mesh.facets[i].form[0], mesh.facets[i].form[1]);
         }
     }
 }

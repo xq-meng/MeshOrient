@@ -23,7 +23,9 @@ src/triMesh.cpp
 src/MeshOrient.cpp)
 add_library(MeshOrient STATIC ${SOURCES})
 target_include_directories(MeshOrient PUBLIC ${EIGEN_BASE})
+target_include_directories(MeshOrient PUBLIC ${IGL_BASE}/include)
 target_include_directories(MeshOrient PUBLIC ./include)
+target_link_libraries(MeshOrient PUBLIC pthread)
 
 if(MESHORIENT_BUILD_EXECUTABLE)
     add_executable(MeshOrientExe src/MeshOrientExe.cpp)
