@@ -14,27 +14,10 @@ using namespace std;
  * @param patterns If it meets one of the patterns, delete the charactor and split it from this index.
  * @return std::vector<std::string> 
  */
-std::vector<std::string> seperate_string(std::string origin, std::vector<std::string> patterns = {" ", "\t"}) {
+std::vector<std::string> seperate_string(std::string origin) {
     std::vector<std::string> result;
-    if (origin.length() == 0) {
-        return result;
-    }
-    origin += patterns[0];
-    size_t startPos = std::string::npos;
-    for (auto & pattern : patterns) {
-        startPos = (origin.find(pattern) < startPos) ? origin.find(pattern) : startPos;
-    }
-    size_t pos = startPos;
-    while (pos != std::string::npos) {
-        std::string temp = origin.substr(0, pos);
-        if (temp.length())
-            result.push_back(temp);
-        origin = origin.substr(pos + 1, origin.size());
-        pos = std::string::npos;
-        for (auto & pattern : patterns) {
-            pos = (origin.find(pattern) < pos) ? origin.find(pattern) : pos;
-        }
-    }
+    std::stringstream ss(origin);
+    while (ss >> origin) result.push_back(origin);
     return result;
 }
 
